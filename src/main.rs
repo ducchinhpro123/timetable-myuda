@@ -116,18 +116,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut is_current_day                = false;
 
                     for (i, r) in row_data.iter().enumerate() {
-                        if i == 0 {
-                            if let Some(&value) = map.get(r.as_str()) {
-                                if value == current_weekday {
-                                    is_current_day = true;
+                        match i {
+                            0 => {
+                                if let Some(&value) = map.get(r.as_str()) {
+                                        is_current_day = value == current_weekday;
                                 }
+                            },
+                            3 => {
+                                let t = r.split('\n').next().unwrap().trim();
+                                row_data_formatted.push(t);
                             }
-                        }
-                        if i == 3 {
-                            let t = r.split('\n').next().unwrap().trim();
-                            row_data_formatted.push(t);
-                        } else {
-                            row_data_formatted.push(r);
+                            _ => {
+                                row_data_formatted.push(r);
+                            }
+
                         }
                     }
                     if row_data_formatted.len() < 2 {
