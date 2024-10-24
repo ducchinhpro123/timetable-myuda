@@ -8,6 +8,7 @@ Because I'm too lazy to open the browser just to check what I'm going to study t
 
 ### Example
 
+```bash 
 [duchinh@99562 release]$ ./request Your_id password
 Fetching login page...
 Fetching timetable page...
@@ -42,4 +43,4 @@ Fetching timetable page...
 | 7   | Sáng  | 4-6  | 999                          | Lập trình mã nguồn mở 1 (3tc) | ĐH. ABC (GVTG)                  |                               |
 +-----+-------+------+------------------------------+-------------------------------+---------------------------------+-------------------------------+
 
-
+```
