@@ -94,7 +94,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Cell::new(header[6]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
             ]));
 
-            if let Some(table)      = html.select(&table_selector).next() {
+            let current_weekday = now.weekday();
+            let mut map = HashMap::new();
+
+            map.insert("2", chrono::Weekday::Mon);
+            map.insert("3", chrono::Weekday::Tue);
+            map.insert("4", chrono::Weekday::Wed);
+            map.insert("5", chrono::Weekday::Thu);
+            map.insert("6", chrono::Weekday::Fri);
+            map.insert("7", chrono::Weekday::Sat);
+            map.insert("8", chrono::Weekday::Sun);
+
+            if let Some(table) = html.select(&table_selector).next() {
                 for row in table.select(&tr) {
                     let row_data: Vec<_> = row
                         .select(&td)
@@ -102,7 +113,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .collect();
 
                     let mut row_data_formatted: Vec<&str> = Vec::new();
+                    let mut is_current_day                = false;
+
                     for (i, r) in row_data.iter().enumerate() {
+                        if i == 0 {
+                            if let Some(&value) = map.get(r.as_str()) {
+                                if value == current_weekday {
+                                    is_current_day = true;
+                                }
+                            }
+                        }
                         if i == 3 {
                             let t = r.split('\n').next().unwrap().trim();
                             row_data_formatted.push(t);
@@ -113,7 +133,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if row_data_formatted.len() < 2 {
                         continue
                     }
-                    table_pretty.add_row(Row::from(row_data_formatted));
+
+                    if is_current_day {
+                        table_pretty.add_row(
+                            Row::new(vec![
+                                Cell::new(&row_data_formatted[0]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
+                                Cell::new(&row_data_formatted[1]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
+                                Cell::new(&row_data_formatted[2]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
+                                Cell::new(&row_data_formatted[3]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
+                                Cell::new(&row_data_formatted[4]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
+                                Cell::new(&row_data_formatted[5]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
+                                Cell::new(&row_data_formatted[6]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
+                            ])
+                        );
+                    } else {
+                        table_pretty.add_row(Row::from(row_data_formatted));
+                    }
                 }
             }
 
