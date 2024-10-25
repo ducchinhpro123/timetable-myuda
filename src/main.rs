@@ -78,10 +78,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let resp_timetable_text = resp_timetable.text_with_charset("utf-8").await?;
             let html                = Html::parse_document(&resp_timetable_text);
             let table_selector      = Selector::parse("#MainContent_GV2").unwrap();
+            let announcement        = Selector::parse("#MainContent_Gtb").unwrap();
             let tr                  = Selector::parse("tr").unwrap();
             let td                  = Selector::parse("td").unwrap();
 
-            let mut table_pretty    = Table::new();
+            let mut table_pretty          = Table::new();
+            let mut announcement_table = Table::new();
             let header              = ["THỨ", "BUỔI", "TIẾT", "PHÒNG", "HỌC PHẦN", "GIẢNG VIÊN", "LỚP HỌC TẬP"];
 
             table_pretty.add_row(Row::new(vec![
@@ -105,6 +107,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             map.insert("7", chrono::Weekday::Sat);
             map.insert("8", chrono::Weekday::Sun);
 
+            if let Some(table) = html.select(&announcement).next() {
+                for row in table.select(&tr) {
+                    let row_data:  Vec<_> = row.select(&td)
+                        .map(|cell| cell.text().collect::<String>().trim().to_string())
+                        .collect();
+                    announcement_table.add_row(row_data.into());
+                }
+            }
+
             if let Some(table) = html.select(&table_selector).next() {
                 for row in table.select(&tr) {
                     let row_data: Vec<_> = row
@@ -121,6 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 if let Some(&value) = map.get(r.as_str()) {
                                         is_current_day = value == current_weekday;
                                 }
+                                row_data_formatted.push(r);
                             },
                             3 => {
                                 let t = r.split('\n').next().unwrap().trim();
@@ -165,7 +177,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 table_pretty.printstd();
             }
+            announcement_table.printstd();
             return Ok(());
+
         };
     } else {
         println!("Failed: {}", resp.status());
