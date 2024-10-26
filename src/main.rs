@@ -19,12 +19,16 @@ struct Cli {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args            = Cli::parse();
 
+    // Set Viet Nam timezone instead of use UTC time
     let viet_nam_offset = FixedOffset::east_opt(7 * 3600).unwrap();
     let now             = Utc::now().with_timezone(&viet_nam_offset);
 
+    // Store cookie so that we can navigate to another page that requires login in the 
+    // first place
     let cookie_store    = Arc::new(Jar::default());
     let client          = Client::builder().cookie_provider(cookie_store.clone()).build()?;
 
+    // Url will be send to login
     let login_url       = "https://my.uda.edu.vn/sv/svlogin";
     let mut form        = HashMap::new();
 
@@ -38,6 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let login_page = client.get(login_url).send().await?.text().await?;
 
+    // Minic the browser how it intends to send a request
     let document                  = Html::parse_document(&login_page);
     let viewstate_selector        = Selector::parse(r#"input[name="__VIEWSTATE"]"#).unwrap();
     let event_validation_selector = Selector::parse(r#"input[name="__EVENTVALIDATION"]"#).unwrap();
@@ -67,6 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .send()
         .await?;
 
+    // If login successfully
     if resp.status().is_success() {
         let timetable_url = "https://my.uda.edu.vn/sv/tkb";
 
@@ -82,9 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tr                  = Selector::parse("tr").unwrap();
             let td                  = Selector::parse("td").unwrap();
 
-            let mut table_pretty          = Table::new();
+            let header                 = ["THỨ", "BUỔI", "TIẾT", "PHÒNG", "HỌC PHẦN", "GIẢNG VIÊN", "LỚP HỌC TẬP"];
+            // There are two tables in the timetable_url, first is timetable and the second
+            // is an announcement table, usually contains some announcements like if to day is 
+            // off or something.
+            let mut table_pretty       = Table::new();
             let mut announcement_table = Table::new();
-            let header              = ["THỨ", "BUỔI", "TIẾT", "PHÒNG", "HỌC PHẦN", "GIẢNG VIÊN", "LỚP HỌC TẬP"];
 
             table_pretty.add_row(Row::new(vec![
                 Cell::new(header[0]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
@@ -107,6 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             map.insert("7", chrono::Weekday::Sat);
             map.insert("8", chrono::Weekday::Sun);
 
+            // Find announcement table and add data to announcement_table 
             if let Some(table) = html.select(&announcement).next() {
                 for row in table.select(&tr) {
                     let row_data:  Vec<_> = row.select(&td)
@@ -116,6 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
+            // Find timetabl table and add data to table_pretty 
             if let Some(table) = html.select(&table_selector).next() {
                 for row in table.select(&tr) {
                     let row_data: Vec<_> = row
@@ -128,12 +139,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     for (i, r) in row_data.iter().enumerate() {
                         match i {
+                            // The column zero contains the day like 2 for Monday, 3 for Thirday and so on...
                             0 => {
                                 if let Some(&value) = map.get(r.as_str()) {
                                         is_current_day = value == current_weekday;
                                 }
                                 row_data_formatted.push(r);
                             },
+                            // Some data after '\n' that we don't need to include 
                             3 => {
                                 let t = r.split('\n').next().unwrap().trim();
                                 row_data_formatted.push(t);
@@ -148,6 +161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue
                     }
 
+                    // Highlight the row, that is the current day
                     if is_current_day {
                         table_pretty.add_row(
                             Row::new(vec![
@@ -160,7 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 Cell::new(&row_data_formatted[6]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
                             ])
                         );
-                    } else {
+                    } else { // The others days
                         table_pretty.add_row(Row::from(row_data_formatted));
                     }
                 }
@@ -171,6 +185,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("{}", formatted_date);
 
+            // We may have to check in line 83 but I don't know why wrong username and password still pass. 
+            // So I check it in here
             if table_pretty.len() < 2 {
                 println!("Recheck your username and password");
                 panic!("{}", "There is nothing in the timetable to display, if it was a mistake, please recheck your username and password.".red());
@@ -179,7 +195,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             announcement_table.printstd();
             return Ok(());
-
         };
     } else {
         println!("Failed: {}", resp.status());
