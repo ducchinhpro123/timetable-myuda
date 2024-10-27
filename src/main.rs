@@ -48,6 +48,14 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
 
     // Find timetabl table and add data to table_pretty 
     if let Some(table) = html.select(&table_selector).next() {
+
+        let mut is_current_day = false;
+        let mut is_next_day    = false;
+
+        if map.get("8").unwrap() == &current_weekday {
+            is_next_day        = true;
+        }
+
         for row in table.select(&tr) {
             let row_data: Vec<_> = row
                 .select(&td)
@@ -55,7 +63,6 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
                 .collect();
 
             let mut row_data_formatted: Vec<&str> = Vec::new();
-            let mut is_current_day                = false;
 
             for (i, r) in row_data.iter().enumerate() {
                 match i {
@@ -83,18 +90,29 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
 
             // Highlight the row, that is the current day
             if is_current_day {
-                table_pretty.add_row(
-                    Row::new(vec![
-                        Cell::new(&row_data_formatted[0]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
-                        Cell::new(&row_data_formatted[1]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
-                        Cell::new(&row_data_formatted[2]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
-                        Cell::new(&row_data_formatted[3]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
-                        Cell::new(&row_data_formatted[4]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
-                        Cell::new(&row_data_formatted[5]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
-                        Cell::new(&row_data_formatted[6]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::YELLOW)), 
-                    ])
-                );
-            } else { // The others days
+                is_next_day = true;
+                let mut cells = Vec::new();
+                for data in &row_data_formatted {
+                    cells.push(Cell::new(data)
+                        .with_style(Attr::Bold)
+                        .with_style(Attr::ForegroundColor(color::YELLOW))
+                    );
+                }
+                table_pretty.add_row(Row::new(cells));
+                is_current_day = false;
+
+            } else if is_next_day {
+                let mut cells = Vec::new();
+                for data in &row_data_formatted {
+                    cells.push(Cell::new(data)
+                        .with_style(Attr::Bold)
+                        .with_style(Attr::ForegroundColor(color::BRIGHT_CYAN))
+                    );
+                }
+                table_pretty.add_row(Row::new(cells));
+                is_next_day = false;
+            }
+            else { // The others days
                 table_pretty.add_row(Row::from(row_data_formatted));
             }
         }
