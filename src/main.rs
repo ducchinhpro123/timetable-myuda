@@ -26,6 +26,7 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
     let mut table_pretty    = Table::new();
 
     let current_weekday     = now.weekday();
+    let next_day            = current_weekday.succ();
     let mut map             = HashMap::new();
 
     map.insert("2",           chrono::Weekday::Mon);
@@ -52,10 +53,6 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
         let mut is_current_day = false;
         let mut is_next_day    = false;
 
-        if map.get("8").unwrap() == &current_weekday {
-            is_next_day        = true;
-        }
-
         for row in table.select(&tr) {
             let row_data: Vec<_> = row
                 .select(&td)
@@ -69,7 +66,8 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
                     // The column zero contains the day like 2 for Monday, 3 for Thirday and so on...
                     0 => {
                         if let Some(&value) = map.get(r.as_str()) {
-                                is_current_day = value == current_weekday;
+                            is_current_day = value == current_weekday;
+                            is_next_day    = value == next_day;
                         }
                         row_data_formatted.push(r);
                     },
@@ -81,7 +79,6 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
                     _ => {
                         row_data_formatted.push(r);
                     }
-
                 }
             }
             if row_data_formatted.len() < 2 {
