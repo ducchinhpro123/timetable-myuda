@@ -134,14 +134,24 @@ fn annoucement_table(html: &Html, tr: &Selector, td: &Selector) -> Table {
     let mut announcement_table = Table::new();
 
     // Find announcement table and add data to announcement_table 
+    let header = ["Thời gian nghỉ", "Nội dung nghỉ"];
+
+    announcement_table.add_row(Row::new(vec![
+        Cell::new(header[0]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::RED)), 
+        Cell::new(header[1]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::RED)), 
+    ]));
+
     if let Some(table) = html.select(&announcement).next() {
         for row in table.select(&tr) {
             let row_data:  Vec<_> = row.select(&td)
                 .map(|cell| cell.text().collect::<String>().trim().to_string())
                 .collect();
-            announcement_table.add_row(row_data.into());
+            if row_data.len() > 1 {
+                announcement_table.add_row(row_data.into());
+            }
         }
     }
+
     return announcement_table;
 }
 
