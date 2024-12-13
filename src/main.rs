@@ -1,11 +1,12 @@
 use reqwest::{cookie::Jar, Client};
 use scraper::{Html, Selector};
-use std::sync::Arc;
+use std::{io::stdout, sync::Arc};
 use chrono::{Datelike, Utc, FixedOffset};
 use prettytable::{Table, Row, Cell};
 use std::collections::HashMap;
 use prettytable::{Attr, color};
 use figlet_rs::FIGfont;
+use chrono::{NaiveDate, NaiveDateTime};
 use clap::Parser;
 use colored::Colorize;
 
@@ -15,7 +16,52 @@ struct Cli {
     password: String
 }
 
-fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
+fn exam_schedule(html: &Html, tr: &Selector, td: &Selector) -> Table {
+    let header = ["Học kỳ", "Tên học phần", "Số TC", "Ngày thi", "Xuất", "Thời gian thi", "Phòng", "Hình thức"];
+    let mut table = Table::new();
+    let viet_nam_offset = FixedOffset::east_opt(7 * 3600).unwrap();
+    let now = Utc::now().with_timezone(&viet_nam_offset);
+    let sc = Selector::parse("#MainContent_GV2").unwrap();
+
+    table.add_row(Row::new(vec![
+        Cell::new(header[0]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+        Cell::new(header[1]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+        Cell::new(header[2]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+        Cell::new(header[3]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+        Cell::new(header[4]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+        Cell::new(header[5]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+        Cell::new(header[6]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+        Cell::new(header[7]).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN)),
+    ]));
+
+    if let Some(r) = html.select(&sc).next() {
+        for row in r.select(&tr) {
+            let row_data:  Vec<_> = row.select(&td)
+                .map(|cell| {
+                    cell.text().collect::<String>().trim().to_string()
+                }).collect();
+            if row_data.len() > 3 {
+                if let Ok(date) = NaiveDate::parse_from_str(&row_data[3], "%d/%m/%Y") {
+                    let date_time = date.and_hms_opt(0, 0, 0).unwrap()
+                        .and_local_timezone(viet_nam_offset).unwrap();
+                    if date_time >= now {
+                        let styled_row = Row::new(row_data.iter().enumerate().map(|(i, v)| {
+                            if i == 3 {
+                                Cell::new(v).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::RED))
+                            } else {
+                                Cell::new(v)
+                            }
+                        }).collect());
+                        table.add_row(styled_row);
+                    }
+                }
+            }
+        }
+    }
+    return table;
+}
+
+fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
 
     let viet_nam_offset     = FixedOffset::east_opt(7 * 3600).unwrap();
     let now                 = Utc::now().with_timezone(&viet_nam_offset);
@@ -129,6 +175,7 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table{
     return table_pretty;
 }
 
+
 fn annoucement_table(html: &Html, tr: &Selector, td: &Selector) -> Table {
     let announcement           = Selector::parse("#MainContent_Gtb").unwrap();
     let mut announcement_table = Table::new();
@@ -212,10 +259,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // If login successfully
     if resp.status().is_success() {
         let timetable_url = "https://my.uda.edu.vn/sv/tkb";
+        let exam_schedule_url = "https://my.uda.edu.vn/sv/lichthi";
 
-        println!("Waiting my.uda.edu.vn/sv/tkb response...");
+        println!("Waiting...");
 
         let resp_timetable = client.get(timetable_url).send().await?;
+        let resp_exam_schedule = client.get(exam_schedule_url).send().await?;
 
         if resp_timetable.status().is_success() {
             let resp_timetable_text = resp_timetable.text_with_charset("utf-8").await?;
@@ -228,8 +277,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             timetable_table.printstd();
             anoucement_table.printstd();
-            return Ok(());
+            // return Ok(());
         };
+        if resp_exam_schedule.status().is_success() {
+            let resp_exam_schedule_text = resp_exam_schedule.text_with_charset("utf-8").await?;
+            let html                = Html::parse_document(&resp_exam_schedule_text);
+            let tr                  = Selector::parse("tr").unwrap();
+            let td                  = Selector::parse("td").unwrap();
+
+            let exam_schedule       = exam_schedule(&html, &tr, &td);
+            exam_schedule.printstd();
+            return Ok(());
+        }
+
     } else {
         println!("Failed: {}", resp.status());
     }
