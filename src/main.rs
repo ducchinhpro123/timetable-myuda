@@ -1,13 +1,13 @@
 use reqwest::{cookie::Jar, Client};
 use scraper::{Html, Selector};
-use std::{io::stdout, sync::Arc};
-use chrono::{Datelike, Utc, FixedOffset};
+use std::sync::Arc;
+use chrono::{Datelike, Duration, FixedOffset, Utc};
 use prettytable::{Table, Row, Cell};
 use std::collections::HashMap;
 use prettytable::{Attr, color};
 use figlet_rs::FIGfont;
-use chrono::{NaiveDate, NaiveDateTime};
-use clap::Parser;
+use chrono::NaiveDate;
+//use clap::Parser;
 use colored::Colorize;
 
 #[derive(Parser)]
@@ -44,7 +44,7 @@ fn exam_schedule(html: &Html, tr: &Selector, td: &Selector) -> Table {
                 if let Ok(date) = NaiveDate::parse_from_str(&row_data[3], "%d/%m/%Y") {
                     let date_time = date.and_hms_opt(0, 0, 0).unwrap()
                         .and_local_timezone(viet_nam_offset).unwrap();
-                    if date_time >= now {
+                    if (date_time + Duration::days(1)) >= now {
                         let styled_row = Row::new(row_data.iter().enumerate().map(|(i, v)| {
                             if i == 3 {
                                 Cell::new(v).with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::RED))
