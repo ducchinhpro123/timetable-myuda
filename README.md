@@ -1,6 +1,3 @@
-# A simple program fetching timetable from my.uda.edu.vn
-
-Because I'm too lazy to open the browser just to check what I'm going to study today.
 
 ## Usage
 
