@@ -355,6 +355,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let td = Selector::parse("td").unwrap();
         let anoucement_table = annoucement_table(&html, &tr, &td);
         let timetable_table = timetable_table(html, tr, td);
+        
+        let mut timetable_content = Vec::new();
+        let mut announcement_content = Vec::new();
+
+        for i in 1..timetable_table.len() {
+            if let Some(data) = timetable_table.get_row(i) {
+                let row_content: Vec<String> = (0..data.len()).filter_map(|j| data.get_cell(j).map(|cell| cell.get_content().to_string())).collect();
+                timetable_content.push(row_content);
+            }
+        }
+
+        for i in 1..anoucement_table.len() {
+            if let Some(data) = anoucement_table.get_row(i) {
+                let row_content: Vec<String> = (0..data.len()).filter_map(|j| data.get_cell(j).map(|cell| cell.get_content().to_string())).collect();
+                announcement_content.push(row_content);
+            }
+        }
+
+        let mut matches_course_indices = Vec::new();
+        for (i, timetable_row) in timetable_content.iter().enumerate() {
+            for annoucement_row in announcement_content.iter() {
+                if let Some(course) = timetable_row.get(4) {
+                    let matches_course = annoucement_row.iter().any(|cell| {
+                        cell.contains(course)
+                    });
+                    
+                    if matches_course {
+                        matches_course_indices.push(i+1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        for index in matches_course_indices {
+            if let Some(row) = timetable_table.get_mut_row(index) {
+                for cell_index in 0..row.len() {
+                    if let Some(cell) = row.get_mut_cell(cell_index) {
+                        let content = cell.get_content().to_string();
+                        *cell = Cell::new(&content)
+                            .with_style(Attr::Bold)
+                            .with_style(Attr::ForegroundColor(color::RED))
+                            .with_style(Attr::Dim);
+                    }
+                }
+            }
+        }
+
 
         timetable_table.printstd();
         anoucement_table.printstd();
