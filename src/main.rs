@@ -354,7 +354,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tr = Selector::parse("tr").unwrap();
         let td = Selector::parse("td").unwrap();
         let anoucement_table = annoucement_table(&html, &tr, &td);
-        let timetable_table = timetable_table(html, tr, td);
+        let mut timetable_table = timetable_table(html, tr, td);
         
         let mut timetable_content = Vec::new();
         let mut announcement_content = Vec::new();
