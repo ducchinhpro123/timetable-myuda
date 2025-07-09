@@ -223,12 +223,6 @@ fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
     let utc_now = chrono::offset::Utc::now();
     println!("Hôm nay là ngày {}", utc_now.format("%d/%m/%Y "));
 
-    // We may have to check in line 83 but I don't know why wrong username and password still pass.
-    // So I check it in here
-    if table_pretty.len() < 2 {
-        println!("Recheck your username and password");
-        panic!("{}", "There is nothing in the timetable to display, if it was a mistake, please recheck your username and password.".red());
-    }
     return table_pretty;
 }
 
