@@ -88,7 +88,7 @@ pub fn cancellation_notice(html: &Html, tr: &Selector, td: &Selector) -> Table {
 }
 
 // Optimized function to find matching courses in parallel
-pub fn find_matching_courses_parallel(
+pub fn find_matching_courses(
     timetable_content: &[Vec<String>],
     announcement_content: &[Vec<String>],
 ) -> Vec<usize> {
