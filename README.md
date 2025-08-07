@@ -23,6 +23,13 @@ UDA_PASSWORD=your_password
 cargo run
 ```
 
+If you intent to build --release, you may want to create a symlink and setup your environment variables, which depends on your environment.
+
+```
+export UDA_USERNAME="your_username"
+export UDA_PASSWORD="your_password"
+```
+
 ## Example Output
 
 ```
