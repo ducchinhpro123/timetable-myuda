@@ -74,8 +74,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     form.insert("User", username.as_str());
     form.insert("Password", password.as_str());
     form.insert("__EVENTTARGET", "Lnew1");
-    form.insert("__EVENTARGUMENT", "");
-    form.insert("__VIEWSTATEGENERATOR", "C9E6EC0D");
+    // form.insert("__EVENTARGUMENT", "");
+    // form.insert("__VIEWSTATEGENERATOR", "C9E6EC0D");
 
     bar.set_message("Login");
     // Post login request with assigned form of data
