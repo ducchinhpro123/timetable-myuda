@@ -34,16 +34,6 @@ export UDA_PASSWORD="your_password"
 
 ```sh
 ⠤ Login successfully, getting information                                                                                                                                                       Hôm nay là ngày 09/08/2025
- __________________________________
-( That must be wonderful: I don't  )
-( understand it at all. -- Moliere )
- ----------------------------------
-        o   ^__^
-         o  (oo)\_______
-            (__)\       )\/\
-                ||----w |
-                ||     ||
-
 Thời khóa biểu trống
 Thời khóa biểu sắp tới (Upcoming schedule)
 +-------+-----+--------------+------+--------+--------------------------------+-----------------------+-------------------------+
