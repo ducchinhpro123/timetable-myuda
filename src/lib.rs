@@ -1,45 +1,9 @@
-use chrono::{Datelike, Duration as ChronoDuration, FixedOffset, NaiveDate, Utc};
-use dotenv::dotenv;
+use chrono::{Duration as ChronoDuration, FixedOffset, NaiveDate, Utc};
 use prettytable::{color, Attr, Cell, Row, Table};
 use scraper::{Html, Selector};
-use std::collections::HashMap;
-use std::env;
 
-// #[derive(Parser)]
-#[derive(Debug)]
-pub struct User {
-    username: Option<String>,
-    password: Option<String>,
-}
-
-impl User {
-    /// Create a new User struct with default username and password that fetches from .env file.
-    /// If .env file is empty, return empty string for both username and password with error message provided
-    ///
-    /// # Examples
-    /// let user = User::new();
-    /// ```
-    pub fn new() -> Self {
-        dotenv().ok();
-        Self {
-            username: env::var("UDA_USERNAME").ok().or_else(|| {
-                eprintln!("Warning: UDA_USERNAME not set, using None");
-                None
-            }),
-            password: env::var("UDA_PASSWORD").ok().or_else(|| {
-                eprintln!("Warning: UDA_PASSWORD not set, using None");
-                None
-            }),
-        }
-    }
-
-    pub fn get_username(&self) -> Option<&String> {
-        self.username.as_ref()
-    }
-    pub fn get_password(&self) -> Option<&String> {
-        self.password.as_ref()
-    }
-}
+mod config;
+pub use config::UserConfig;
 
 /// Parses an HTML document to extract the class cancellation notice table.
 ///
@@ -87,7 +51,6 @@ pub fn cancellation_notice(html: &Html, tr: &Selector, td: &Selector) -> Table {
     announcement_table
 }
 
-// Optimized function to find matching courses in parallel
 pub fn find_matching_courses(
     timetable_content: &[Vec<String>],
     announcement_content: &[Vec<String>],
@@ -121,9 +84,6 @@ pub fn find_matching_courses(
 /// * `tr` - A `Selector` for the table rows (`<tr>`) that contain timetable data.
 /// * `td` - A `Selector` for the table data cells (`<td>`) within each selected row.
 pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
-    let viet_nam_offset = FixedOffset::east_opt(7 * 3600).unwrap();
-    let now = Utc::now().with_timezone(&viet_nam_offset);
-
     let header = [
         "THỨ",
         "BUỔI",
@@ -136,18 +96,6 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
 
     let table_selector = Selector::parse("#MainContent_GV2").unwrap();
     let mut table_pretty = Table::new();
-
-    let current_weekday = now.weekday();
-    let next_day = current_weekday.succ();
-    let mut map = HashMap::new();
-
-    map.insert("2", chrono::Weekday::Mon);
-    map.insert("3", chrono::Weekday::Tue);
-    map.insert("4", chrono::Weekday::Wed);
-    map.insert("5", chrono::Weekday::Thu);
-    map.insert("6", chrono::Weekday::Fri);
-    map.insert("7", chrono::Weekday::Sat);
-    map.insert("8", chrono::Weekday::Sun);
 
     table_pretty.add_row(Row::new(vec![
         Cell::new(header[0])
@@ -175,74 +123,29 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
 
     // Find timetable table and add data to table_pretty
     if let Some(table) = html.select(&table_selector).next() {
-        let mut is_current_day = false;
-        let mut is_next_day = false;
-
         for row in table.select(&tr) {
             let row_data: Vec<_> = row
                 .select(&td)
                 .map(|cell| cell.text().collect::<String>().trim().to_string())
                 .collect();
-
-            let mut row_data_formatted: Vec<&str> = Vec::new();
-
-            for (i, r) in row_data.iter().enumerate() {
-                match i {
-                    // The column zero contains the day like 2 for Monday, 3 for Thirday and so on...
-                    0 => {
-                        if let Some(&value) = map.get(r.as_str()) {
-                            is_current_day = value == current_weekday;
-                            is_next_day = value == next_day;
-                        }
-                        row_data_formatted.push(r);
-                    }
-                    // Some data after '\n' that we don't need to include
-                    3 => {
-                        let t = r.split('\n').next().unwrap().trim();
-                        row_data_formatted.push(t);
-                    }
-                    _ => {
-                        row_data_formatted.push(r);
-                    }
+            let mut cells = Vec::new();
+            for (i, data) in row_data.iter().enumerate() {
+                // Column number 3 contains additional information which is not helpful
+                if i == 3 {
+                    cells.push(Cell::new(data.split('\n').next().unwrap().trim()));
+                } else {
+                    cells.push(Cell::new(data));
                 }
             }
-            if row_data_formatted.len() < 2 {
-                continue;
-            }
 
-            // Highlight the row, that is the current day
-            if is_current_day {
-                is_next_day = true;
-                let mut cells = Vec::new();
-                for data in &row_data_formatted {
-                    cells.push(
-                        Cell::new(data)
-                            .with_style(Attr::Bold)
-                            .with_style(Attr::ForegroundColor(color::YELLOW)),
-                    );
-                }
+            if cells.len() > 0 {
                 table_pretty.add_row(Row::new(cells));
-                is_current_day = false;
-            } else if is_next_day {
-                let mut cells = Vec::new();
-                for data in &row_data_formatted {
-                    cells.push(
-                        Cell::new(data)
-                            .with_style(Attr::Bold)
-                            .with_style(Attr::ForegroundColor(color::BRIGHT_CYAN)),
-                    );
-                }
-                table_pretty.add_row(Row::new(cells));
-                is_next_day = false;
-            } else {
-                // The others days
-                table_pretty.add_row(Row::from(row_data_formatted));
             }
         }
     }
 
-    let utc_now = chrono::offset::Utc::now();
-    println!("Hôm nay là ngày {}", utc_now.format("%d/%m/%Y "));
+    // let utc_now = chrono::offset::Utc::now();
+    // println!("Hôm nay là ngày {}", utc_now.format("%d/%m/%Y "));
 
     table_pretty
 }

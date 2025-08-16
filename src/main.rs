@@ -1,9 +1,10 @@
 use indicatif::ProgressBar;
 use prettytable::{color, Attr, Cell, Table};
 use rayon::prelude::*;
+
 use request::{
     cancellation_notice, exam_schedule, extract_upcoming_schedule, find_matching_courses,
-    timetable_table, User,
+    timetable_table, UserConfig
 };
 use reqwest::{cookie::Jar, Client};
 use scraper::{Html, Selector};
@@ -11,9 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use std::process::Command;
 
-// Optimized function to extract table content in parallel
 fn extract_table_content_parallel(table: &Table) -> Vec<Vec<String>> {
     (1..table.len())
         .into_par_iter()
@@ -39,18 +38,15 @@ fn extract_table_content_parallel(table: &Table) -> Vec<Vec<String>> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables from .env file
-    let user = User::new();
-    let username = if let Some(username) = user.get_username() {
-        username
-    } else {
-        panic!("Username not found");
-    };
+    let user_config = UserConfig::from_env();
 
-    let password = if let Some(password) = user.get_password() {
-        password
-    } else {
-        panic!("Password not found");
-    };
+    if let Err(e) = user_config.validate() {
+        eprintln!("Configuration error: {}", e);
+        std::process::exit(1);
+    }
+
+    let username = user_config.get_username().unwrap();
+    let password = user_config.get_password().unwrap();
 
     let total_start = Instant::now();
     let bar = ProgressBar::new_spinner();
@@ -143,9 +139,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             || extract_table_content_parallel(&announcement_table),
         );
 
-        // Find matching courses in parallel
-        let matches_course_indices =
-            find_matching_courses(&timetable_content, &announcement_content);
+        // Find matching courses
+        let matches_course_indices = find_matching_courses(&timetable_content, &announcement_content);
         // Apply styling to matched courses
         for index in matches_course_indices {
             if let Some(row) = timetable_table.get_mut_row(index) {
@@ -164,41 +159,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bar.set_message("Displaying results...");
         bar.finish_and_clear();
 
-        // println!("
-        // ███████╗ ██████╗██╗  ██╗███████╗██████╗ ██╗   ██╗██╗     ███████╗
-        // ██╔════╝██╔════╝██║  ██║██╔════╝██╔══██╗██║   ██║██║     ██╔════╝
-        // ███████╗██║     ███████║█████╗  ██║  ██║██║   ██║██║     █████╗
-        // ╚════██║██║     ██╔══██║██╔══╝  ██║  ██║██║   ██║██║     ██╔══╝
-        // ███████║╚██████╗██║  ██║███████╗██████╔╝╚██████╔╝███████╗███████╗
-        // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═════╝  ╚═════╝ ╚══════╝╚══════╝
-        //             ");
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg("cowthink $(fortune)")
-            .output()
-            .expect("Failed to execute command");
-
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            println!("{}", stdout);
-        } else {
-            println!(
-                r"
- _________________________________________
-( Why use Windows, when you can have air  )
-( conditioning? Why use Windows, when you )
-( can leave through the door? -- Konrad   )
-( Blum                                    )
- -----------------------------------------
-        o   ^__^
-         o  (oo)\_______
-            (__)\       )\/\
-                ||----w |
-                ||     ||
-                "
-            );
-        }
-
         if timetable_table.len() > 1 {
             println!("Thời khóa biểu chính thức (Official schedule)");
             timetable_table.printstd();
@@ -209,21 +169,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if upcoming_schedule.len() > 1 {
             println!("Thời khóa biểu sắp tới (Upcoming schedule)");
             upcoming_schedule.printstd();
+        } else {
+            println!("Thời khóa biểu sắp tới trống");
         }
 
         if announcement_table.len() > 1 {
             println!("Thông báo nghỉ (Cancellation schedule notice)");
             announcement_table.printstd();
+        } else {
+            println!("Không có thông báo nghỉ");
         }
 
         if exam_schedule_table.len() > 1 {
             println!("Thông báo thi (Exam schedule notice)");
             exam_schedule_table.printstd();
+        } else {
+            println!("Không có thông báo thi");
         }
 
         let total_elapsed = total_start.elapsed();
         println!("\nTotal execution time: {total_elapsed:.2?}");
-        // println!();
         return Ok(());
     } else {
         eprintln!("Failed: {}", resp.status());
