@@ -1,9 +1,9 @@
 use indicatif::ProgressBar;
-use prettytable::{color, Attr, Cell, Table};
+use prettytable::{Table};
 use rayon::prelude::*;
 
 use request::{
-    cancellation_notice, exam_schedule, extract_upcoming_schedule, find_matching_courses,
+    cancellation_notice, exam_schedule, extract_upcoming_schedule,
     timetable_table, UserConfig
 };
 use reqwest::{cookie::Jar, Client};
@@ -12,19 +12,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-
-fn extract_table_content_parallel(table: &Table) -> Vec<Vec<String>> {
-    (1..table.len())
-        .into_par_iter()
-        .filter_map(|i| {
-            table.get_row(i).map(|data| {
-                (0..data.len())
-                    .filter_map(|j| data.get_cell(j).map(|cell| cell.get_content().to_string()))
-                    .collect()
-            })
-        })
-        .collect()
-}
 
 /*=======================================================================================================+
  |  ███╗   ███╗ █████╗ ██╗███╗   ██╗    ██████╗ ██████╗  ██████╗  ██████╗ ██████╗  █████╗ ███╗   ███╗    |
@@ -130,31 +117,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Build tables sequentially but optimize with async where possible
         let announcement_table = cancellation_notice(&html_timetable, &tr, &td);
         let upcoming_schedule = extract_upcoming_schedule(&html_timetable, &tr, &td);
-        let mut timetable_table = timetable_table(html_timetable, tr.clone(), td.clone());
+        let timetable_table = timetable_table(html_timetable, tr.clone(), td.clone());
         let exam_schedule_table = exam_schedule(&html_exam, &tr, &td);
-
-        // Extract table content in parallel
-        let (timetable_content, announcement_content) = rayon::join(
-            || extract_table_content_parallel(&timetable_table),
-            || extract_table_content_parallel(&announcement_table),
-        );
-
-        // Find matching courses
-        let matches_course_indices = find_matching_courses(&timetable_content, &announcement_content);
-        // Apply styling to matched courses
-        for index in matches_course_indices {
-            if let Some(row) = timetable_table.get_mut_row(index) {
-                for cell_index in 0..row.len() {
-                    if let Some(cell) = row.get_mut_cell(cell_index) {
-                        let content = cell.get_content().to_string();
-                        *cell = Cell::new(&content)
-                            .with_style(Attr::Bold)
-                            .with_style(Attr::ForegroundColor(color::RED))
-                            .with_style(Attr::Dim);
-                    }
-                }
-            }
-        }
 
         bar.set_message("Displaying results...");
         bar.finish_and_clear();

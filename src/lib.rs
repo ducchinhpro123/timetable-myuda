@@ -1,4 +1,5 @@
 use chrono::{Duration as ChronoDuration, FixedOffset, NaiveDate, Utc};
+use colored::Colorize;
 use prettytable::{color, Attr, Cell, Row, Table};
 use scraper::{Html, Selector};
 
@@ -96,7 +97,6 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
 
     let table_selector = Selector::parse("#MainContent_GV2").unwrap();
     let mut table_pretty = Table::new();
-
     table_pretty.add_row(Row::new(vec![
         Cell::new(header[0])
             .with_style(Attr::Bold)
@@ -124,17 +124,20 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
     // Find timetable table and add data to table_pretty
     if let Some(table) = html.select(&table_selector).next() {
         for row in table.select(&tr) {
-            let row_data: Vec<_> = row
-                .select(&td)
-                .map(|cell| cell.text().collect::<String>().trim().to_string())
-                .collect();
+
             let mut cells = Vec::new();
-            for (i, data) in row_data.iter().enumerate() {
-                // Column number 3 contains additional information which is not helpful
-                if i == 3 {
-                    cells.push(Cell::new(data.split('\n').next().unwrap().trim()));
+            for (i, cell) in row.select(&td).enumerate() {
+                let cell_text = cell.text().collect::<String>().trim().to_string();
+
+                if cell_text.to_lowercase().contains("online") {
+                    let a_selector = Selector::parse("a").unwrap();
+                    if let Some(link) = cell.select(&a_selector).next() {
+                        cells.push(Cell::new(&format!("link online ({})", link.value().attr("href").unwrap_or("link unavailable").cyan())));
+                    }
+                } else if i == 3 {
+                    cells.push(Cell::new(&cell_text.split('\n').next().unwrap().trim()));
                 } else {
-                    cells.push(Cell::new(data));
+                    cells.push(Cell::new(&cell_text));
                 }
             }
 
