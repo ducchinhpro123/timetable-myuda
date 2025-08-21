@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let total_elapsed = total_start.elapsed();
         println!("\nTotal execution time: {total_elapsed:.2?}");
-        println!("{}", "◕‿◕) GOODBYE!!!".yellow());
+        println!("{}", "◕‿◕) GOODBYE!!!".black().on_white());
         return Ok(());
     } else {
         eprintln!("Failed: {}", resp.status());
