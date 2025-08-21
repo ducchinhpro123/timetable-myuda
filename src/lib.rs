@@ -1,8 +1,11 @@
-use chrono::{Duration as ChronoDuration, FixedOffset, NaiveDate, Utc};
+use chrono::{Datelike, Duration as ChronoDuration, FixedOffset, NaiveDate, Utc};
 use colored::Colorize;
-use prettytable::{color, Attr, Cell, Row, Table};
+use prettytable::{
+    color,
+    format::{self, FormatBuilder},
+    Attr, Cell, Row, Table,
+};
 use scraper::{Html, Selector};
-
 mod config;
 pub use config::UserConfig;
 
@@ -77,7 +80,25 @@ pub fn find_matching_courses(
         .collect()
 }
 
-/// Parses an HTML document to extract timetable.
+fn is_class_today(current_weekday: &str, timetable_weekday_num: &str) -> bool {
+    // Convert the weekday number to weekday string
+    let timetable_weekday_str = match timetable_weekday_num {
+        "2" => "Mon",
+        "3" => "Tue",
+        "4" => "Wed",
+        "5" => "Thu",
+        "6" => "Fri",
+        "7" => "Sat",
+        "8" => "Sun",
+        _ => "Invalid day (bad day lol)",
+    };
+
+    if timetable_weekday_str == current_weekday {
+        return true;
+    };
+    false
+}
+/// Parses an HTML document to extract timetable =>
 ///
 /// # Arguments
 ///
@@ -94,9 +115,13 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
         "GIẢNG VIÊN",
         "LỚP HỌC TẬP",
     ];
+    let vn_offset = FixedOffset::east_opt(7 * 3600).unwrap();
+    let now = Utc::now().with_timezone(&vn_offset);
+    let current_weekday = now.weekday().to_string();
 
     let table_selector = Selector::parse("#MainContent_GV2").unwrap();
     let mut table_pretty = Table::new();
+
     table_pretty.add_row(Row::new(vec![
         Cell::new(header[0])
             .with_style(Attr::Bold)
@@ -121,34 +146,82 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
             .with_style(Attr::ForegroundColor(color::GREEN)),
     ]));
 
+    let mut classes: Vec<String> = Vec::new();
+    let mut have_a_class_today = false;
+
     // Find timetable table and add data to table_pretty
     if let Some(table) = html.select(&table_selector).next() {
         for row in table.select(&tr) {
-
             let mut cells = Vec::new();
             for (i, cell) in row.select(&td).enumerate() {
                 let cell_text = cell.text().collect::<String>().trim().to_string();
 
-                if cell_text.to_lowercase().contains("online") {
+                if i == 3 && cell_text.to_lowercase().contains("online") {
                     let a_selector = Selector::parse("a").unwrap();
                     if let Some(link) = cell.select(&a_selector).next() {
-                        cells.push(Cell::new(&format!("link online ({})", link.value().attr("href").unwrap_or("link unavailable").cyan())));
+                        cells.push(Cell::new(&format!(
+                            "link online ({})",
+                            link.value()
+                                .attr("href")
+                                .unwrap_or("link unavailable")
+                        )).with_style(Attr::ForegroundColor(color::BRIGHT_CYAN)));
                     }
-                } else if i == 3 {
+                }
+                if i == 0 {
+                    // day of the week column
+                    if is_class_today(&current_weekday, &cell_text) {
+                        have_a_class_today = true;
+                    }
+                }
+                // if cell_text.to_lowercase().contains("online") { continue; }
+                if i == 3 && !cell_text.to_lowercase().contains("online") {
                     cells.push(Cell::new(&cell_text.split('\n').next().unwrap().trim()));
-                } else {
-                    cells.push(Cell::new(&cell_text));
+                } else if !cell_text.to_lowercase().contains("online") {
+                    cells.push(Cell::new(&cell_text.trim()));
                 }
             }
 
             if cells.len() > 0 {
+                if have_a_class_today {
+                    let class = cells
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ─ ");
+                    classes.push(class);
+                    have_a_class_today = false;
+                }
                 table_pretty.add_row(Row::new(cells));
             }
         }
     }
 
+    if classes.len() > 0 {
+        let longest_len = classes.iter().map(|x| x.len()).max().unwrap();
+        let dashes = "─".repeat(longest_len / 2);
+        println!("{} CLASSES FOR TODAY {}", dashes, dashes);
+        for class in classes {
+            println!("{}", class.bold());
+        }
+        println!("─────────────────────{}{}\n", dashes, dashes);
+    } else {
+        println!("NO CLASSES FOR TODAY\n");
+    }
     // let utc_now = chrono::offset::Utc::now();
     // println!("Hôm nay là ngày {}", utc_now.format("%d/%m/%Y "));
+
+    let custom_table_format = FormatBuilder::new()
+        .column_separator('|')
+        .borders('╿')
+        .separators(
+            &[format::LinePosition::Top, format::LinePosition::Intern, format::LinePosition::Bottom],
+            // format::LineSeparator::new('─', '+', '+', '+'),
+            format::LineSeparator::new('─', '╋', '╋', '╋'),
+        )
+        .padding(1, 1)
+        .build();
+
+    table_pretty.set_format(custom_table_format);
 
     table_pretty
 }
@@ -175,6 +248,7 @@ pub fn extract_upcoming_schedule(html: &Html, tr: &Selector, td: &Selector) -> T
         "Lớp học tập",
     ];
     let mut table = Table::new();
+
     table.add_row(Row::new(vec![
         Cell::new(header[0])
             .with_style(Attr::Bold)

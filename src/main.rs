@@ -1,17 +1,13 @@
+use colored::Colorize;
 use indicatif::ProgressBar;
-use prettytable::{Table};
-use rayon::prelude::*;
-
 use request::{
-    cancellation_notice, exam_schedule, extract_upcoming_schedule,
-    timetable_table, UserConfig
+    cancellation_notice, exam_schedule, extract_upcoming_schedule, timetable_table, UserConfig,
 };
 use reqwest::{cookie::Jar, Client};
 use scraper::{Html, Selector};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-
 
 /*=======================================================================================================+
  |  ███╗   ███╗ █████╗ ██╗███╗   ██╗    ██████╗ ██████╗  ██████╗  ██████╗ ██████╗  █████╗ ███╗   ███╗    |
@@ -153,6 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let total_elapsed = total_start.elapsed();
         println!("\nTotal execution time: {total_elapsed:.2?}");
+        println!("{}", "◕‿◕) GOODBYE!!!".yellow());
         return Ok(());
     } else {
         eprintln!("Failed: {}", resp.status());
