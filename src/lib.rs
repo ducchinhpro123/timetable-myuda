@@ -9,6 +9,25 @@ use scraper::{Html, Selector};
 mod config;
 pub use config::UserConfig;
 
+
+#[macro_export]
+macro_rules! table_header {
+
+    ( $headers:expr ) => {
+        {
+            use prettytable::color;
+
+            let mut table = Table::new();
+            let cells: Vec<Cell> = $headers.iter().map(|x| {
+                Cell::new(x)
+                    .with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN))
+            }).collect();
+            table.add_row(Row::new(cells));
+            table
+        }
+    }
+}
+
 /// Parses an HTML document to extract the class cancellation notice table.
 ///
 /// This function iterates through table rows (`<tr>`) matching the `tr` selector,
@@ -98,6 +117,7 @@ fn is_class_today(current_weekday: &str, timetable_weekday_num: &str) -> bool {
     };
     false
 }
+
 /// Parses an HTML document to extract timetable =>
 ///
 /// # Arguments
@@ -120,31 +140,7 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
     let current_weekday = now.weekday().to_string();
 
     let table_selector = Selector::parse("#MainContent_GV2").unwrap();
-    let mut table_pretty = Table::new();
-
-    table_pretty.add_row(Row::new(vec![
-        Cell::new(header[0])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[1])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[2])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[3])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[4])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[5])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[6])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-    ]));
+    let mut table_pretty = table_header![header];
 
     let mut classes: Vec<String> = Vec::new();
     let mut have_a_class_today = false;
@@ -159,12 +155,13 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
                 if i == 3 && cell_text.to_lowercase().contains("online") {
                     let a_selector = Selector::parse("a").unwrap();
                     if let Some(link) = cell.select(&a_selector).next() {
-                        cells.push(Cell::new(&format!(
-                            "link online ({})",
-                            link.value()
-                                .attr("href")
-                                .unwrap_or("link unavailable")
-                        )).with_style(Attr::ForegroundColor(color::BRIGHT_CYAN)));
+                        cells.push(
+                            Cell::new(&format!(
+                                "link online ({})",
+                                link.value().attr("href").unwrap_or("link unavailable")
+                            ))
+                            .with_style(Attr::ForegroundColor(color::BRIGHT_CYAN)),
+                        );
                     }
                 }
                 if i == 0 {
@@ -214,7 +211,11 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
         .column_separator('|')
         .borders('╿')
         .separators(
-            &[format::LinePosition::Top, format::LinePosition::Intern, format::LinePosition::Bottom],
+            &[
+                format::LinePosition::Top,
+                format::LinePosition::Intern,
+                format::LinePosition::Bottom,
+            ],
             // format::LineSeparator::new('─', '+', '+', '+'),
             format::LineSeparator::new('─', '╋', '╋', '╋'),
         )
@@ -247,34 +248,7 @@ pub fn extract_upcoming_schedule(html: &Html, tr: &Selector, td: &Selector) -> T
         "Giảng viên",
         "Lớp học tập",
     ];
-    let mut table = Table::new();
-
-    table.add_row(Row::new(vec![
-        Cell::new(header[0])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[1])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[2])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[3])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[4])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[5])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[6])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[7])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-    ]));
+    let mut table = table_header!(header);
 
     let table_selector_id = Selector::parse("#MainContent_GV1").unwrap();
 
@@ -309,37 +283,12 @@ pub fn exam_schedule(html: &Html, tr: &Selector, td: &Selector) -> Table {
         "Phòng",
         "Hình thức",
     ];
-    let mut table = Table::new();
+
+    let mut table = table_header!(header);
+
     let viet_nam_offset = FixedOffset::east_opt(7 * 3600).unwrap();
     let now = Utc::now().with_timezone(&viet_nam_offset);
     let sc = Selector::parse("#MainContent_GV2").unwrap();
-
-    table.add_row(Row::new(vec![
-        Cell::new(header[0])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[1])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[2])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[3])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[4])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[5])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[6])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-        Cell::new(header[7])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::GREEN)),
-    ]));
 
     if let Some(r) = html.select(&sc).next() {
         // Collect all rows first, then process them sequentially
