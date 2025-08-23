@@ -46,18 +46,8 @@ macro_rules! table_header {
 /// and contains the text content of its cells.
 pub fn cancellation_notice(html: &Html, tr: &Selector, td: &Selector) -> Table {
     let announcement = Selector::parse("#MainContent_Gtb").unwrap();
-    let mut announcement_table = Table::new();
-
     let header = ["Thời gian nghỉ", "Nội dung nghỉ"];
-
-    announcement_table.add_row(Row::new(vec![
-        Cell::new(header[0])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::RED)),
-        Cell::new(header[1])
-            .with_style(Attr::Bold)
-            .with_style(Attr::ForegroundColor(color::RED)),
-    ]));
+    let mut announcement_table = table_header![header];
 
     if let Some(table) = html.select(&announcement).next() {
         for row in table.select(tr) {
@@ -155,10 +145,22 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
                 if i == 3 && cell_text.to_lowercase().contains("online") {
                     let a_selector = Selector::parse("a").unwrap();
                     if let Some(link) = cell.select(&a_selector).next() {
+                        let mut true_link = String::new();
+                        let link_unwrap = link.value().attr("href").unwrap_or("link unavailable");
+
+                        if link_unwrap.contains("target") {
+                            true_link = link_unwrap.replace("targe",""); // I dont know why at the
+                                                                         // end of the string, it
+                                                                         // has to contain
+                                                                         // "target", so i just
+                                                                         // filter it so it becomes
+                                                                         // a valid link
+                        }
+
                         cells.push(
                             Cell::new(&format!(
                                 "link online ({})",
-                                link.value().attr("href").unwrap_or("link unavailable")
+                                true_link
                             ))
                             .with_style(Attr::ForegroundColor(color::BRIGHT_CYAN)),
                         );
