@@ -7,7 +7,7 @@ use reqwest::{cookie::Jar, Client};
 use scraper::{Html, Selector};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration};
+use std::time::Duration;
 
 use dotenv::dotenv;
 use std::env;
@@ -26,6 +26,15 @@ use crate::quote::get_quote;
 */
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv().ok();
+    let daily_quote_api = env::var("DAILY_QUOTE_API")
+        .ok()
+        .or_else(|| {
+            eprintln!("Warning: DAILY_QUOTE_API not set, using None");
+            None
+        })
+        .unwrap();
+
     // Load environment variables from .env file
     let user_config = UserConfig::from_env();
 
@@ -78,10 +87,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .send()
         .await?;
 
+    // let quote = get_quote(&daily_quote_api).await;
     // If login successfully
     if resp.status().is_success() {
         bar.set_message("Login successfully, getting information");
-        let (resp_timetable, resp_exam_schedule) = tokio::join!(
+        let (quote, resp_timetable, resp_exam_schedule) = tokio::join!(
+            get_quote(&daily_quote_api),
             client.get(timetable_url).send(),
             client.get(exam_schedule_url).send()
         );
@@ -150,13 +161,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Không có thông báo thi");
         }
 
-        dotenv().ok();
-        let daily_quote_api = env::var("DAILY_QUOTE_API").ok().or_else(|| {
-                eprintln!("Warning: DAILY_QUOTE_API not set, using None");
-                None
-        }).unwrap();
-
-        let quote = get_quote(&daily_quote_api).await;
 
         match quote {
             Ok(q) => println!(
