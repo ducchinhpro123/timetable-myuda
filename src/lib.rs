@@ -9,23 +9,23 @@ use scraper::{Html, Selector};
 mod config;
 pub use config::UserConfig;
 
-
 #[macro_export]
 macro_rules! table_header {
+    ( $headers:expr ) => {{
+        use prettytable::color;
 
-    ( $headers:expr ) => {
-        {
-            use prettytable::color;
-
-            let mut table = Table::new();
-            let cells: Vec<Cell> = $headers.iter().map(|x| {
+        let mut table = Table::new();
+        let cells: Vec<Cell> = $headers
+            .iter()
+            .map(|x| {
                 Cell::new(x)
-                    .with_style(Attr::Bold).with_style(Attr::ForegroundColor(color::GREEN))
-            }).collect();
-            table.add_row(Row::new(cells));
-            table
-        }
-    }
+                    .with_style(Attr::Bold)
+                    .with_style(Attr::ForegroundColor(color::GREEN))
+            })
+            .collect();
+        table.add_row(Row::new(cells));
+        table
+    }};
 }
 
 /// Parses an HTML document to extract the class cancellation notice table.
@@ -108,6 +108,22 @@ fn is_class_today(current_weekday: &str, timetable_weekday_num: &str) -> bool {
     false
 }
 
+fn get_period(period: &str, session: &str) -> String {
+    if period == "1-3" && session == "Sáng" {
+        return String::from("7g00 - 9g15");
+    }
+    if period == "4-6" && session == "Sáng" {
+        return String::from("9g45 - 12g00");
+    }
+    if period == "1-3" && session == "Chiều" {
+        return String::from("13g00 - 15g15");
+    }
+    if period == "4-6" && session == "Chiều" {
+        return String::from("15g45 - 18g00");
+    }
+    return String::new();
+}
+
 /// Parses an HTML document to extract timetable =>
 ///
 /// # Arguments
@@ -149,20 +165,17 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
                         let link_unwrap = link.value().attr("href").unwrap_or("link unavailable");
 
                         if link_unwrap.contains("target") {
-                            true_link = link_unwrap.replace("targe",""); // I dont know why at the
-                                                                         // end of the string, it
-                                                                         // has to contain
-                                                                         // "target", so i just
-                                                                         // filter it so it becomes
-                                                                         // a valid link
+                            true_link = link_unwrap.replace("targe", ""); // I dont know why at the
+                                                                          // end of the string, it
+                                                                          // has to contain
+                                                                          // "target", so i just
+                                                                          // filter it so it becomes
+                                                                          // a valid link
                         }
 
                         cells.push(
-                            Cell::new(&format!(
-                                "link online ({})",
-                                true_link
-                            ))
-                            .with_style(Attr::ForegroundColor(color::BRIGHT_CYAN)),
+                            Cell::new(&format!("link online ({})", true_link))
+                                .with_style(Attr::ForegroundColor(color::BRIGHT_CYAN)),
                         );
                     }
                 }
@@ -172,8 +185,24 @@ pub fn timetable_table(html: Html, tr: Selector, td: Selector) -> Table {
                         have_a_class_today = true;
                     }
                 }
+                if i == 2 {
+                    let session = cells
+                        .get(1)
+                        .unwrap_or(&Cell::new("(Nah bro)"))
+                        .get_content();
+                    let time_for_period = get_period(&cell_text.trim(), &session.trim());
+                    if !time_for_period.is_empty() {
+                        cells.push(Cell::new(&format!(
+                            "{} ({})",
+                            &cell_text.trim(),
+                            time_for_period
+                        )));
+                    } else {
+                        cells.push(Cell::new(&cell_text.trim()));
+                    }
+                }
                 // if cell_text.to_lowercase().contains("online") { continue; }
-                if i == 3 && !cell_text.to_lowercase().contains("online") {
+                else if i == 3 && !cell_text.to_lowercase().contains("online") {
                     cells.push(Cell::new(&cell_text.split('\n').next().unwrap().trim()));
                 } else if !cell_text.to_lowercase().contains("online") {
                     cells.push(Cell::new(&cell_text.trim()));
@@ -302,7 +331,7 @@ pub fn exam_schedule(html: &Html, tr: &Selector, td: &Selector) -> Table {
                 .select(td)
                 .map(|cell| cell.text().collect::<String>().trim().to_string())
                 .collect();
-            if row_data.len() > 3 {
+            if row_data.len() > 0 {
                 if let Ok(date) = NaiveDate::parse_from_str(&row_data[3], "%d/%m/%Y") {
                     let date_time = date
                         .and_hms_opt(0, 0, 0)
