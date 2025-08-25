@@ -7,7 +7,13 @@ use reqwest::{cookie::Jar, Client};
 use scraper::{Html, Selector};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
+
+use dotenv::dotenv;
+use std::env;
+
+mod quote;
+use crate::quote::get_quote;
 
 /*=======================================================================================================+
  |  ███╗   ███╗ █████╗ ██╗███╗   ██╗    ██████╗ ██████╗  ██████╗  ██████╗ ██████╗  █████╗ ███╗   ███╗    |
@@ -31,7 +37,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let username = user_config.get_username().unwrap();
     let password = user_config.get_password().unwrap();
 
-    let total_start = Instant::now();
     let bar = ProgressBar::new_spinner();
 
     bar.enable_steady_tick(Duration::from_millis(5));
@@ -101,7 +106,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
 
-        // Parse HTML documents and build tables sequentially
         // (HTML objects are not thread-safe due to internal Cell usage)
         let html_timetable = Html::parse_document(&resp_timetable_text);
         let html_exam = Html::parse_document(&resp_exam_text);
@@ -110,7 +114,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tr = Selector::parse("tr").unwrap();
         let td = Selector::parse("td").unwrap();
 
-        // Build tables sequentially but optimize with async where possible
         let announcement_table = cancellation_notice(&html_timetable, &tr, &td);
         let upcoming_schedule = extract_upcoming_schedule(&html_timetable, &tr, &td);
         let timetable_table = timetable_table(html_timetable, tr.clone(), td.clone());
@@ -147,9 +150,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Không có thông báo thi");
         }
 
-        let total_elapsed = total_start.elapsed();
-        println!("\nTotal execution time: {total_elapsed:.2?}");
+        dotenv().ok();
+        let daily_quote_api = env::var("DAILY_QUOTE_API").ok().or_else(|| {
+                eprintln!("Warning: DAILY_QUOTE_API not set, using None");
+                None
+        }).unwrap();
+
+        let quote = get_quote(&daily_quote_api).await;
+
+        match quote {
+            Ok(q) => println!(
+                "{} - {}",
+                q.quote.bright_green().bold(),
+                q.author.magenta().italic()
+            ),
+            Err(_) => eprintln!("Talk is cheap, so me the code - Linus Torvalds"),
+        }
+
         println!("{}", "◕‿◕) GOODBYE!!!".black().on_white());
+
         return Ok(());
     } else {
         eprintln!("Failed: {}", resp.status());
